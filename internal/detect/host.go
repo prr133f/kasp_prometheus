@@ -21,6 +21,10 @@ func DetectVirtualization() HostType {
 		return virt
 	}
 
+	if virt, err := detectViaOpenRC(); err == nil && virt != HostTypeUnknown {
+		return virt
+	}
+
 	return HostTypePhysical
 }
 
@@ -35,6 +39,31 @@ func detectViaSystemd() (HostType, error) {
 
 	switch virt {
 	case "", "none":
+		return HostTypePhysical, nil
+	case "docker", "podman", "lxc", "openvz", "rkt":
+		return HostTypeContainer, nil
+	case "kvm", "vmware", "virtualbox", "xen", "hyperv", "qemu", "bhyve", "parallels":
+		return HostTypeVM, nil
+	default:
+		return HostTypeVM, nil
+	}
+}
+
+func detectViaOpenRC() (HostType, error) {
+	cmd := exec.Command("virt-what")
+	if err := cmd.Run(); err != nil {
+		return HostTypeUnknown, err
+	}
+
+	output, err := cmd.Output()
+	if err != nil {
+		return HostTypeUnknown, err
+	}
+
+	virt := strings.TrimSpace(strings.ToLower(string(output)))
+
+	switch virt {
+	case "":
 		return HostTypePhysical, nil
 	case "docker", "podman", "lxc", "openvz", "rkt":
 		return HostTypeContainer, nil

@@ -21,6 +21,10 @@ func DetectVirtualization() HostType {
 		return virt
 	}
 
+	if isContainerByFiles() {
+		return HostTypeContainer
+	}
+
 	if virt, err := detectViaOpenRC(); err == nil && virt != HostTypeUnknown {
 		return virt
 	}
@@ -72,6 +76,23 @@ func detectViaOpenRC() (HostType, error) {
 	default:
 		return HostTypeVM, nil
 	}
+}
+
+func isContainerByFiles() bool {
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		return true
+	}
+	if _, err := os.Stat("/proc/vz"); err == nil {
+		return true
+	}
+	if cgroup, err := os.ReadFile("/proc/self/cgroup"); err == nil {
+		if strings.Contains(string(cgroup), "docker") ||
+			strings.Contains(string(cgroup), "podman") ||
+			strings.Contains(string(cgroup), "lxc") {
+			return true
+		}
+	}
+	return false
 }
 
 func GetHostMetadata() map[string]string {
